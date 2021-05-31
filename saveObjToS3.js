@@ -28,7 +28,9 @@ exports.handler = (event, context, callback) => {
     const params = {
         Bucket: 'lombard-database',
         Key: FILE_NAME,
-        Body: IMAGE_DATA
+        Body: IMAGE_DATA,
+        ACL: 'authenticated-read',
+        ContentType: 'image/jpeg'
     };
 
     const url = s3.getSignedUrl('getObject', {
