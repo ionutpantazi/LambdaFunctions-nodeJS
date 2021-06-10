@@ -23,36 +23,38 @@ exports.handler = (event, context, callback) => {
         const read = {
             TableName: 'downloadAPI',
             Key: {
-                "path": password //replace path
+                "password": password
             }
         };
         docClient.get(read, function(err, data) {
             if (err) {
-                callback(null, CORS({ status: "error", message: "error on get method" }));
+                callback(null, CORS({ status: "error", message: "Internal error: error on get method" }));
             }
             else {
                 if (data.Item) {
                     let remaining = data.Item.remaining;
+                    let datetime = new Date().toISOString();
                     if (remaining > 0) {
                         const write = {
                             TableName: 'downloadAPI',
                             Key: {
-                                "path": password, //replace path
+                                "password": password,
                             },
-                            UpdateExpression: "set remaining = :left",
+                            UpdateExpression: "set remaining = :left, lastUsed = :last",
                             ExpressionAttributeValues: {
-                                ":left": remaining - 1
+                                ":left": remaining - 1,
+                                ":last": datetime
                             },
                             ReturnValues: "UPDATED_NEW"
                         };
                         docClient.update(write, function(err, data) {
                             if (err) {
-                                callback(null, CORS({ status: "error", message: "error on update method" }));
+                                callback(null, CORS({ status: "error", message: "Internal error: error on update method" }));
                             }
                             else {
                                 const url = s3.getSignedUrl('getObject', {
-                                    Bucket: 'lombard-database',
-                                    Key: "docs/" + id,
+                                    Bucket: 'lombardstandard',
+                                    Key: "pdfs/" + id,
                                     Expires: 10
                                 });
                                 callback(null, CORS({ status: "ok", message: remaining - 1 + " downloads remaining", download: url }));
@@ -69,7 +71,28 @@ exports.handler = (event, context, callback) => {
             }
         });
     }
+    else if (event.queryStringParameters.password && event.queryStringParameters.remaining) {
+        const write = {
+            TableName: 'downloadAPI',
+            Key: {
+                "password": event.queryStringParameters.password,
+            },
+            UpdateExpression: "set remaining = :left",
+            ExpressionAttributeValues: {
+                ":left": event.queryStringParameters.remaining
+            },
+            ReturnValues: "UPDATED_NEW"
+        };
+        docClient.update(write, function(err, data) {
+            if (err) {
+                callback(null, CORS({ status: "error", message: "Internal error: error on update method" }));
+            }
+            else {
+                callback(null, CORS({ status: "ok", message: "Password: " + event.queryStringParameters.password + " was created/updated. Remaining downloads: " + event.queryStringParameters.remaining }));
+            }
+        });
+    }
     else {
-        callback(null, CORS({ status: "error", message: "event.body missing" }));
+        callback(null, CORS({ status: "error", message: "Internal error: event.body missing" }));
     }
 };
