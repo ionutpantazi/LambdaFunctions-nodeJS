@@ -17,25 +17,60 @@ exports.handler = (event, context, callback) => {
 
     if (event.queryStringParameters) {
         if (event.queryStringParameters.param && event.queryStringParameters.param == 'save') {
-            const write = {
-                TableName: 'db-table',
-                Item: {
-                    "id": JSON.parse(event.body).id,
-                    "geometry": JSON.parse(event.body).geometry,
-                    "properties": JSON.parse(event.body).properties,
-                    "type": JSON.parse(event.body).type
-                }
-            };
-            docClient.put(write, function(err, data) {
-                if (err) {
-                    callback(err, CORS("error on save method"));
-                    console.log('error3');
-                }
-                else {
-                    console.log('DB saved');
-                    callback(null, CORS('id ' + JSON.parse(event.body).id + ' saved'));
+            const db = JSON.parse(event.body);
+            console.log(db.db.features.length);
+            const items = db.db.features;
+            let saved = [];
+            let deleted = [];
+            items.forEach((item) => {
+                if (item.length > 1) {
+                    if (item[0] == '+') {
+                        saved.push(item[1].id);
+                        const params = {
+                            TableName: 'db-table',
+                            Item: {
+                                "id": item[1].id,
+                                "geometry": item[1].geometry,
+                                "properties": item[1].properties,
+                                "type": item[1].type
+                            }
+                        };
+                        docClient.put(params, function(err, data) {
+                            if (err) {
+                                callback(err, CORS("error on save method"));
+                                console.log('error3');
+                            }
+                            else {
+                                saved.push(item[1].id);
+                            }
+                        });
+                    }
+                    else if (item[0] == '-') {
+                        deleted.push(item[1].id);
+                        const params = {
+                            TableName: 'db-table',
+                            Key: {
+                                "id": item[1].id
+                            }
+                        };
+                        docClient.delete(params, function(err, data) {
+                            if (err) {
+                                callback(err, CORS("error on delete method"));
+                                console.log('error3.1');
+                            }
+                            else {
+                                deleted.push(item[1].id);
+                            }
+                        });
+                    }
+                    else {
+                        callback(null, CORS('no action taken'));
+                    }
+
                 }
             });
+            callback(null, CORS('saved: ' + JSON.stringify(saved) + ' deleted: ' + JSON.stringify(deleted)));
+
         }
         if (event.queryStringParameters.param && event.queryStringParameters.param == 'scan') {
             const scan = {
