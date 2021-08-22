@@ -22,6 +22,7 @@ exports.handler = (event, context, callback) => {
             const items = db.db.features;
             let saved = [];
             let deleted = [];
+            let modified = [];
             items.forEach((item) => {
                 if (item.length > 1) {
                     if (item[0] == '+') {
@@ -63,13 +64,42 @@ exports.handler = (event, context, callback) => {
                             }
                         });
                     }
+                    else if (item[0] == '~') {
+                        modified.push(item[2].id);
+                        const params = {
+                            TableName: 'db-table',
+                            Key: {
+                                "id": item[2].id,
+                            },
+                            UpdateExpression: "set #properties = :p, #geometry = :g, #type = :t",
+                            ExpressionAttributeNames: {
+                                "#properties": "properties",
+                                "#geometry": "geometry",
+                                "#type": "type",
+                            },
+                            ExpressionAttributeValues: {
+                                ":p": item[2].properties,
+                                ":g": item[2].geometry,
+                                ":t": item[2].type
+                            },
+                        };
+                        docClient.update(params, function(err, data) {
+                            if (err) {
+                                callback(err, CORS("error on save method"));
+                                console.log('error3');
+                            }
+                            else {
+                                modified.push(item[2].id);
+                            }
+                        });
+                    }
                     else {
                         callback(null, CORS('no action taken'));
                     }
 
                 }
             });
-            callback(null, CORS('saved: ' + JSON.stringify(saved) + ' deleted: ' + JSON.stringify(deleted)));
+            callback(null, CORS('saved: ' + JSON.stringify(saved) + ' deleted: ' + JSON.stringify(deleted) + ' modified: ' + JSON.stringify(modified)));
 
         }
         if (event.queryStringParameters.param && event.queryStringParameters.param == 'scan') {
